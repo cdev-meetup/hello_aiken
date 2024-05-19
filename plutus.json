@@ -1,0 +1,49 @@
+{
+  "preamble": {
+    "title": "cdev-meetup/hello_aiken",
+    "description": "Aiken contracts for project 'cdev-meetup/hello_aiken'",
+    "version": "0.0.0",
+    "plutusVersion": "v2",
+    "compiler": {
+      "name": "Aiken",
+      "version": "v1.0.26-alpha+unknown"
+    },
+    "license": "Apache-2.0"
+  },
+  "validators": [
+    {
+      "title": "hello.spend",
+      "datum": {
+        "title": "_datum",
+        "schema": {
+          "$ref": "#/definitions/Data"
+        }
+      },
+      "redeemer": {
+        "title": "_redeemer",
+        "schema": {
+          "$ref": "#/definitions/Data"
+        }
+      },
+      "parameters": [
+        {
+          "title": "user_pkh",
+          "schema": {
+            "$ref": "#/definitions/ByteArray"
+          }
+        }
+      ],
+      "compiledCode": "588901000032323232323223222253330063233001001375860166018601860186018601860186018601860126ea8c02cc024dd50011129998058008a5013253330093371e6eb8c03400801c52889980180180098068008a4c2a6600e9211856616c696461746f722072657475726e65642066616c73650013656375c002ae695ce2ab9e5573eae855d101",
+      "hash": "dcc53c33a437ef11721e6564d69ba8011298ec41bfb5adafbc0ac9f9"
+    }
+  ],
+  "definitions": {
+    "ByteArray": {
+      "dataType": "bytes"
+    },
+    "Data": {
+      "title": "Data",
+      "description": "Any Plutus data."
+    }
+  }
+}
