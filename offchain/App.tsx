@@ -26,6 +26,7 @@ export default function App() {
 
   useEffect(() => {
     async function initLucid() {
+      // Create `.env.local` file and set your Blockfrost Project ID as `NEXT_PUBLIC_BF_PID`
       const blockfrost = new Blockfrost("https://cardano-preview.blockfrost.io/api/v0", process.env.NEXT_PUBLIC_BF_PID);
       const lucid = await Lucid.new(blockfrost, "Preview");
       setLucid(lucid);
@@ -63,8 +64,7 @@ export default function App() {
   }, [userAddress]);
 
   function WalletsConnector(props: { lucid: Lucid; wallets: Wallet[] }) {
-    const lucid = props.lucid;
-    const wallets = props.wallets;
+    const { lucid, wallets } = props;
 
     async function connectWallet(wallet: Wallet) {
       const api = await wallet.enable();
@@ -91,7 +91,7 @@ export default function App() {
   }
 
   function Dashboard(props: { lucid: Lucid }) {
-    const lucid = props.lucid;
+    const { lucid } = props;
 
     type Action = {
       actionName: string;
@@ -104,7 +104,7 @@ export default function App() {
           const tx = await lucid
             .newTx()
             .payToContract(scriptAddress, Data.void(), {
-              lovelace: 42_000000n,
+              lovelace: 42_000000n, // tsconfig.json => target: ESNext
             })
             .complete();
           return tx;
@@ -114,7 +114,7 @@ export default function App() {
         actionName: "Withdraw",
         constructTx: async () => {
           if (!spendingValidator) {
-            throw "Unitialized Spending Validator";
+            throw "Uninitialized Spending Validator";
           }
 
           const utxos = await lucid.utxosAt(scriptAddress);
@@ -165,7 +165,7 @@ export default function App() {
     userAddress ? ( // when wallet connected:
       <Dashboard lucid={lucid} />
     ) : wallets ? (
-      wallets.length ? ( // no wallet connected yet, show wallet list:
+      wallets.length ? ( // when no wallet connected yet, show wallet list:
         <WalletsConnector lucid={lucid} wallets={wallets} />
       ) : (
         <>NO CARDANO WALLET</>
