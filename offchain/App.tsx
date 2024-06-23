@@ -93,45 +93,55 @@ export default function App() {
   function Dashboard(props: { lucid: Lucid }) {
     const { lucid } = props;
 
-    type Action = {
-      actionName: string;
-      constructTx: () => Promise<TxComplete>;
+    const actions: Record<string, () => Promise<TxComplete>> = {
+      deposit: async () => {
+        const tx = await lucid
+          .newTx()
+          .payToContract(scriptAddress, Data.void(), {
+            lovelace: 42_000000n, // tsconfig.json => target: ESNext
+          })
+          .complete();
+        return tx;
+      },
+
+      withdraw: async () => {
+        if (!spendingValidator) {
+          throw "Uninitialized Spending Validator";
+        }
+
+        const utxos = await lucid.utxosAt(scriptAddress);
+        if (!utxos.length) {
+          throw "Empty Script Address";
+        }
+
+        const tx = await lucid.newTx().collectFrom(utxos, Data.void()).attachSpendingValidator(spendingValidator).addSigner(userAddress).complete();
+        return tx;
+      },
     };
-    const actions: Action[] = [
-      {
-        actionName: "Deposit",
-        constructTx: async () => {
-          const tx = await lucid
-            .newTx()
-            .payToContract(scriptAddress, Data.void(), {
-              lovelace: 42_000000n, // tsconfig.json => target: ESNext
-            })
-            .complete();
-          return tx;
-        },
-      },
-      {
-        actionName: "Withdraw",
-        constructTx: async () => {
-          if (!spendingValidator) {
-            throw "Uninitialized Spending Validator";
-          }
-
-          const utxos = await lucid.utxosAt(scriptAddress);
-          if (!utxos.length) {
-            throw "Empty Script Address";
-          }
-
-          const tx = await lucid.newTx().collectFrom(utxos, Data.void()).attachSpendingValidator(spendingValidator).addSigner(userAddress).complete();
-          return tx;
-        },
-      },
-    ];
 
     async function submitTx(tx: TxComplete) {
       const txSigned = await tx.sign().complete();
       const txHash = txSigned.submit();
       return txHash;
+    }
+
+    function ActionButton(props: { action: string }) {
+      const { action } = props;
+      const constructTx = actions[action];
+
+      return (
+        <Button
+          onClick={() =>
+            constructTx()
+              .then((tx) => submitTx(tx).then(console.log).catch(console.log))
+              .catch(console.log)
+          }
+          radius="full"
+          className="bg-gradient-to-tr from-pink-500 to-yellow-500 text-white shadow-lg capitalize"
+        >
+          {action}
+        </Button>
+      );
     }
 
     return (
@@ -141,19 +151,8 @@ export default function App() {
 
         {scriptAddress && ( // Actions:
           <div className="flex gap-2">
-            {actions.map(({ actionName, constructTx }) => (
-              <Button
-                key={actionName}
-                onClick={() =>
-                  constructTx()
-                    .then((tx) => submitTx(tx).then(console.log).catch(console.log))
-                    .catch(console.log)
-                }
-                radius="full"
-                className="bg-gradient-to-tr from-pink-500 to-yellow-500 text-white shadow-lg capitalize"
-              >
-                {actionName}
-              </Button>
+            {["deposit", "withdraw"].map((action) => (
+              <ActionButton key={action} action={action} />
             ))}
           </div>
         )}
