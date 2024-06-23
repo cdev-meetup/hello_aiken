@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Button } from "@nextui-org/button";
-import { Address, applyDoubleCborEncoding, applyParamsToScript, Blockfrost, Data, Lucid, M, SpendingValidator, TxComplete, WalletApi } from "lucid-cardano";
+import { Address, applyDoubleCborEncoding, applyParamsToScript, Blockfrost, Data, Lucid, SpendingValidator, TxComplete, WalletApi } from "lucid-cardano";
 
 type Wallet = {
   name: string;
