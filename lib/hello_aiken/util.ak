@@ -15,26 +15,17 @@ pub fn unwrap_credential(credential: Credential) -> ByteArray {
 pub fn must_show_key(context ctx: ScriptContext, key_policy: PolicyId) -> Bool {
   let txn = ctx.transaction
 
-  txn.reference_inputs
-    |> any(
-        fn(input) {
-          let output = input.output
+  let input <- any(txn.reference_inputs)
+  let output = input.output
 
-          output.value
-            |> flatten()
-            |> any(
-                fn(asset) {
-                  let (policy_id, _, _) = asset
+  let asset <- any(flatten(output.value))
+  let (policy_id, _, _) = asset
 
-                  policy_id == key_policy && (
-                    txn.extra_signatories
-                      |> has(
-                          output.address.payment_credential
-                            |> unwrap_credential,
-                        )
-                  )
-                },
-              )
-        },
-      )
+  let pkh = output.address.payment_credential |> unwrap_credential
+
+  // return:
+  and {
+    policy_id == key_policy,
+    txn.extra_signatories |> has(pkh),
+  }
 }
