@@ -31,7 +31,9 @@ type Wallet = {
   isEnabled(): Promise<boolean>;
 };
 
-const KeyName = fromText("with Staking");
+const KeyName = "Cdev Meetup";
+const KeyNameHex = fromText(KeyName);
+
 const SmartContract = {
   spend:
     // spending validator: [hello.spend]
@@ -136,8 +138,8 @@ export default function App() {
     const keyUTxO = utxos.find((utxo) => {
       // find a UTxO with the key in its assets
       return Object.keys(utxo.assets).find((key) => {
-        // find the asset by key name
-        if (key.endsWith(KeyName)) {
+        // find the asset by key name hex
+        if (key.endsWith(KeyNameHex)) {
           // if the name matches then save the key unit (PolicyID|AssetName)
           asset = key;
           return true;
@@ -242,9 +244,20 @@ export default function App() {
           .collectFrom([utxo])
           .mintAssets(
             {
-              [`${policyID}${KeyName}`]: 1n, // BigInt(1)
+              [`${policyID}${KeyNameHex}`]: 1n, // BigInt(1)
             },
             Data.void()
+          )
+          .attachMetadata(
+            721, // CIP-25
+            {
+              [policyID]: {
+                [KeyName]: {
+                  name: KeyName,
+                  image: "ipfs://QmbEHFjoftYWAEEbMhU1BcR24fqpAVtFuZYNPZduUVZezL",
+                },
+              },
+            }
           )
           .attachMintingPolicy(mintingValidator)
           .complete();
