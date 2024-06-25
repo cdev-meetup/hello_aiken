@@ -56,7 +56,6 @@ export default function App() {
   const [stakePoolInfo, setStakePoolInfo] = useState<Json>();
   const [stakingValidator, setStakingValidator] = useState<Script>();
   const [spendingValidator, setSpendingValidator] = useState<SpendingValidator>();
-  const [mintingValidator, setMintingValidator] = useState<MintingPolicy>();
   const [policyID, setPolicyID] = useState<PolicyId>();
 
   const [keyUnit, setKeyUnit] = useState<Unit>(); // Unit = `${PolicyID}${AssetName}`
