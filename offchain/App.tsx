@@ -247,7 +247,6 @@ export default function App() {
         const txHash = new Constr(0, [String(utxo.txHash)]);
         const outputIndex = BigInt(utxo.outputIndex);
         const oRef = new Constr(0, [txHash, outputIndex]);
-        console.log(oRef);
 
         const mintingScript = applyParamsToScript(SmartContract.mint, [oRef]);
         const mintingValidator: MintingPolicy = {
