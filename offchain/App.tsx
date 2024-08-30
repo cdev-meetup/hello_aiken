@@ -258,7 +258,7 @@ export default function App() {
         };
 
         const policyID = mintingPolicyToId(mintingValidator);
-        console.log({ policyID, mintingValidator, mintingScript });
+
         return await lucid
           .newTx()
           .collectFrom([utxo])
