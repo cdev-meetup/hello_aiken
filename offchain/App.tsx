@@ -1,25 +1,26 @@
 import { useEffect, useState } from "react";
 import { Button } from "@nextui-org/button";
+
+//#region lucid-evolution
 import {
-  Address,
   applyDoubleCborEncoding,
   applyParamsToScript,
   Blockfrost,
   Constr,
+  credentialToRewardAddress,
   Data,
-  fromText,
   Lucid,
-  MintingPolicy,
-  Network,
-  PolicyId,
-  RewardAddress,
-  Script,
-  SpendingValidator,
-  TxComplete,
-  Unit,
-  UTxO,
-  WalletApi,
-} from "lucid-cardano";
+  LucidEvolution,
+  mintingPolicyToId,
+  scriptHashToCredential,
+  TxSignBuilder,
+  validatorToAddress,
+  validatorToScriptHash,
+} from "@lucid-evolution/lucid";
+import { Address, MintingPolicy, Network, PolicyId, RewardAddress, Script, SpendingValidator, Unit, UTxO, WalletApi } from "@lucid-evolution/core-types";
+import { fromText } from "@lucid-evolution/core-utils";
+//#endregion
+
 import { getPoolList, getPoolMetadata, getStakeInfo } from "./util/blockfrost";
 
 type Json = Record<string, any>;
@@ -47,7 +48,11 @@ const SmartContract = {
 };
 
 export default function App() {
-  const [lucid, setLucid] = useState<Lucid>();
+  const CARDANO_NETWORK = process.env.NEXT_PUBLIC_CARDANO_NETWORK as Network;
+  const BF_URL = `${process.env.NEXT_PUBLIC_BF_URL}`;
+  const BF_PID = `${process.env.NEXT_PUBLIC_BF_PID}`;
+
+  const [lucid, setLucid] = useState<LucidEvolution>();
   const [wallets, setWallets] = useState<Wallet[]>();
   const [userAddress, setUserAddress] = useState<Address>(""); // Address = `addr_...`
   const [scriptAddress, setScriptAddress] = useState<Address>(""); // `${PaymentPart}${StakingPart}`
@@ -64,13 +69,15 @@ export default function App() {
   useEffect(() => {
     async function initLucid() {
       // Create `.env.local` file and set your Blockfrost URL and ProjectID
-      const blockfrost = new Blockfrost(process.env.NEXT_PUBLIC_BF_URL!, process.env.NEXT_PUBLIC_BF_PID);
-      const lucid = await Lucid.new(blockfrost, process.env.NEXT_PUBLIC_CARDANO_NETWORK as Network);
+      const blockfrost = new Blockfrost(BF_URL, BF_PID);
+      const lucid = await Lucid(blockfrost, CARDANO_NETWORK);
+
       setLucid(lucid);
     }
     initLucid();
 
     const wallets = [];
+
     for (const key in window.cardano) {
       if (window.cardano[key].apiVersion) {
         wallets.push(window.cardano[key]);
@@ -90,6 +97,7 @@ export default function App() {
       if (!keyUTxO) return; // skip
 
       const keyPolicy = keyUnit.substring(0, 56);
+
       setPolicyID(keyPolicy);
 
       //#region Staking part
@@ -98,11 +106,13 @@ export default function App() {
         type: "PlutusV2",
         script: applyDoubleCborEncoding(stakingScript),
       };
+
       setStakingValidator(stakingValidator);
 
-      const stakingHash = lucid.utils.validatorToScriptHash(stakingValidator);
-      const stakingCredential = lucid.utils.scriptHashToCredential(stakingHash);
-      const stakingAddress = lucid.utils.credentialToRewardAddress(stakingCredential);
+      const stakingHash = validatorToScriptHash(stakingValidator);
+      const stakingCredential = scriptHashToCredential(stakingHash);
+      const stakingAddress = credentialToRewardAddress(CARDANO_NETWORK, stakingCredential);
+
       setStakeAddress(stakingAddress);
       //#endregion
 
@@ -112,10 +122,12 @@ export default function App() {
         type: "PlutusV2",
         script: applyDoubleCborEncoding(spendingScript),
       };
+
       setSpendingValidator(spendingValidator);
       //#endregion
 
-      const address = lucid.utils.validatorToAddress(spendingValidator, stakingCredential);
+      const address = validatorToAddress(CARDANO_NETWORK, spendingValidator, stakingCredential);
+
       setScriptAddress(address);
     });
   }, [userAddress]);
@@ -130,8 +142,8 @@ export default function App() {
     getPoolMetadata(stakeAddressInfo.pool_id).then(setStakePoolInfo).catch(console.log);
   }, [stakeAddressInfo]);
 
-  async function findKeyInWallet(lucid: Lucid): Promise<[Unit, UTxO?]> {
-    const utxos = await lucid.wallet.getUtxos();
+  async function findKeyInWallet(lucid: LucidEvolution): Promise<[Unit, UTxO?]> {
+    const utxos = await lucid.wallet().getUtxos();
 
     let asset = "";
     const keyUTxO = utxos.find((utxo) => {
@@ -141,6 +153,7 @@ export default function App() {
         if (key.endsWith(KeyNameHex)) {
           // if the name matches then save the key unit (PolicyID|AssetName)
           asset = key;
+
           return true;
         } else {
           return false;
@@ -154,14 +167,16 @@ export default function App() {
     return [asset, keyUTxO];
   }
 
-  function WalletsConnector(props: { lucid: Lucid; wallets: Wallet[] }) {
+  function WalletsConnector(props: { lucid: LucidEvolution; wallets: Wallet[] }) {
     const { lucid, wallets } = props;
 
     async function connectWallet(wallet: Wallet) {
       const api = await wallet.enable();
-      lucid.selectWallet(api);
 
-      const address = await lucid.wallet.address();
+      lucid.selectWallet.fromAPI(api);
+
+      const address = await lucid.wallet().address();
+
       setUserAddress(address);
     }
 
@@ -170,9 +185,9 @@ export default function App() {
         {wallets.map((wallet) => (
           <Button
             key={wallet.name}
-            onClick={() => connectWallet(wallet)}
-            radius="full"
             className="bg-gradient-to-tr from-pink-500 to-yellow-500 text-white shadow-lg capitalize"
+            radius="full"
+            onClick={() => connectWallet(wallet)}
           >
             {wallet.name}
           </Button>
@@ -181,17 +196,20 @@ export default function App() {
     );
   }
 
-  function Dashboard(props: { lucid: Lucid }) {
+  function Dashboard(props: { lucid: LucidEvolution }) {
     const { lucid } = props;
 
-    const actions: Record<string, () => Promise<TxComplete>> = {
+    const actions: Record<string, () => Promise<TxSignBuilder>> = {
       deposit: async () => {
         const tx = await lucid
           .newTx()
-          .payToContract(scriptAddress, Data.void(), {
-            lovelace: 42_000000n, // tsconfig.json => target: ESNext
-          })
+          .pay.ToContract(
+            scriptAddress,
+            { kind: "inline", value: Data.void() },
+            { lovelace: 42_000000n } // tsconfig.json => target: ESNext
+          )
           .complete();
+
         return tx;
       },
 
@@ -205,6 +223,7 @@ export default function App() {
         }
 
         const utxos = await lucid.utxosAt(scriptAddress);
+
         if (!utxos.length) {
           throw "Empty Script Address";
         }
@@ -213,22 +232,22 @@ export default function App() {
           .newTx()
           .readFrom([keyUTxO])
           .collectFrom(utxos, Data.void())
-          .attachSpendingValidator(spendingValidator)
+          .attach.SpendingValidator(spendingValidator)
           .addSigner(userAddress)
           .complete();
+
         return tx;
       },
 
       mint: async () => {
-        const utxos = await lucid.wallet.getUtxos();
-        if (!utxos.length) {
-          throw "Empty Wallet Address";
-        }
+        const utxos = await lucid.wallet().getUtxos();
+        if (!utxos.length) throw "Empty Wallet Address";
 
         const utxo = utxos[0];
         const txHash = new Constr(0, [String(utxo.txHash)]);
         const outputIndex = BigInt(utxo.outputIndex);
         const oRef = new Constr(0, [txHash, outputIndex]);
+        console.log(oRef);
 
         const mintingScript = applyParamsToScript(SmartContract.mint, [oRef]);
         const mintingValidator: MintingPolicy = {
@@ -236,7 +255,7 @@ export default function App() {
           script: applyDoubleCborEncoding(mintingScript),
         };
 
-        const policyID = lucid.utils.mintingPolicyToId(mintingValidator);
+        const policyID = mintingPolicyToId(mintingValidator);
 
         return await lucid
           .newTx()
@@ -258,7 +277,7 @@ export default function App() {
               },
             }
           )
-          .attachMintingPolicy(mintingValidator)
+          .attach.MintingPolicy(mintingValidator)
           .complete();
       },
 
@@ -286,8 +305,8 @@ export default function App() {
         return await lucid
           .newTx()
           .readFrom([keyUTxO])
-          .deregisterStake(stakeAddress, Data.void())
-          .attachCertificateValidator(stakingValidator)
+          .deRegisterStake(stakeAddress, Data.void())
+          .attach.CertificateValidator(stakingValidator)
           .addSigner(userAddress)
           .complete();
       },
@@ -306,6 +325,7 @@ export default function App() {
         }
 
         const pools = await getPoolList();
+
         if (!pools?.length) {
           throw "No Pool Available";
         }
@@ -314,7 +334,7 @@ export default function App() {
           .newTx()
           .readFrom([keyUTxO])
           .delegateTo(stakeAddress, pools[0], Data.void())
-          .attachCertificateValidator(stakingValidator)
+          .attach.CertificateValidator(stakingValidator)
           .addSigner(userAddress)
           .complete();
       },
@@ -332,7 +352,8 @@ export default function App() {
           throw "Uninitialized Staking Validator";
         }
 
-        const { rewards } = await lucid.provider.getDelegation(stakeAddress);
+        const { rewards } = await lucid.config().provider.getDelegation(stakeAddress);
+
         if (!rewards) {
           throw "Nothing to Withdraw";
         }
@@ -341,15 +362,16 @@ export default function App() {
           .newTx()
           .readFrom([keyUTxO])
           .withdraw(stakeAddress, rewards, Data.void())
-          .attachCertificateValidator(stakingValidator)
+          .attach.CertificateValidator(stakingValidator)
           .addSigner(userAddress)
           .complete();
       },
     };
 
-    async function submitTx(tx: TxComplete) {
-      const txSigned = await tx.sign().complete();
+    async function submitTx(tx: TxSignBuilder) {
+      const txSigned = await tx.sign.withWallet().complete();
       const txHash = txSigned.submit();
+
       return txHash;
     }
 
@@ -359,13 +381,13 @@ export default function App() {
 
       return (
         <Button
+          className={props.className}
+          radius="full"
           onClick={() =>
             constructTx()
               .then((tx) => submitTx(tx).then(console.log).catch(console.log))
               .catch(console.log)
           }
-          radius="full"
-          className={props.className}
         >
           {action}
         </Button>

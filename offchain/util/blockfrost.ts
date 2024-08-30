@@ -5,6 +5,7 @@ async function req(path: string) {
       headers: { project_id: process.env.NEXT_PUBLIC_BF_PID! }, // Blockfrost ProjectID
     }
   );
+
   return await rsp.json();
 }
 
