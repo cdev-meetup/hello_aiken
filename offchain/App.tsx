@@ -1,26 +1,32 @@
 import { useEffect, useState } from "react";
 import { Button } from "@nextui-org/button";
 
-//#region lucid-evolution
 import {
+  Address,
   applyDoubleCborEncoding,
   applyParamsToScript,
   Blockfrost,
-  Constr,
   credentialToRewardAddress,
   Data,
+  fromText,
   Lucid,
   LucidEvolution,
+  MintingPolicy,
   mintingPolicyToId,
+  Network,
+  PolicyId,
+  RewardAddress,
+  Script,
   scriptHashToCredential,
+  SpendingValidator,
   TxSignBuilder,
+  Unit,
+  UTxO,
   validatorToAddress,
   validatorToScriptHash,
+  WalletApi,
 } from "@lucid-evolution/lucid";
-import { Address, MintingPolicy, Network, PolicyId, RewardAddress, Script, SpendingValidator, Unit, UTxO, WalletApi } from "@lucid-evolution/core-types";
-import { fromText } from "@lucid-evolution/core-utils";
-//#endregion
-
+import { outputReferenceToMintingScript } from "./util/lucid";
 import { getPoolList, getPoolMetadata, getStakeInfo } from "./util/blockfrost";
 
 type Json = Record<string, any>;
@@ -244,25 +250,20 @@ export default function App() {
         if (!utxos.length) throw "Empty Wallet Address";
 
         const utxo = utxos[0];
-        const txHash = new Constr(0, [String(utxo.txHash)]);
-        const outputIndex = BigInt(utxo.outputIndex);
-        const oRef = new Constr(0, [txHash, outputIndex]);
 
-        const mintingScript = applyParamsToScript(SmartContract.mint, [oRef]);
+        const mintingScript = outputReferenceToMintingScript(SmartContract.mint, utxo.txHash, utxo.outputIndex);
         const mintingValidator: MintingPolicy = {
           type: "PlutusV2",
           script: applyDoubleCborEncoding(mintingScript),
         };
 
         const policyID = mintingPolicyToId(mintingValidator);
-
+        console.log({ policyID, mintingValidator, mintingScript });
         return await lucid
           .newTx()
           .collectFrom([utxo])
           .mintAssets(
-            {
-              [`${policyID}${KeyNameHex}`]: 1n, // BigInt(1)
-            },
+            { [`${policyID}${KeyNameHex}`]: 1n }, // BigInt(1)
             Data.void()
           )
           .attachMetadata(
