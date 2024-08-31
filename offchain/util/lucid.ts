@@ -1,6 +1,6 @@
 import { applyParamsToScript, Constr } from "lucid-cardano";
 
-export const outputReferenceToMintingScript = (mintingScript: string, txHash: string, txIndex: number) =>
+export const applyOutputReferenceToMintingScript = (mintingScript: string, txHash: string, txIndex: number) =>
   applyParamsToScript(mintingScript, [
     // OutputReference:
     new Constr(0, [

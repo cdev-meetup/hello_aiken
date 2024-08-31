@@ -26,7 +26,7 @@ import {
   validatorToScriptHash,
   WalletApi,
 } from "@lucid-evolution/lucid";
-import { outputReferenceToMintingScript } from "./util/lucid";
+import { applyOutputReferenceToMintingScript } from "./util/lucid";
 import { getPoolList, getPoolMetadata, getStakeInfo } from "./util/blockfrost";
 
 type Json = Record<string, any>;
@@ -251,7 +251,7 @@ export default function App() {
 
         const utxo = utxos[0];
 
-        const mintingScript = outputReferenceToMintingScript(SmartContract.mint, utxo.txHash, utxo.outputIndex);
+        const mintingScript = applyOutputReferenceToMintingScript(SmartContract.mint, utxo.txHash, utxo.outputIndex);
         const mintingValidator: MintingPolicy = {
           type: "PlutusV2",
           script: applyDoubleCborEncoding(mintingScript),
